@@ -16,6 +16,7 @@ func main() {
 
   for {
     scanner := bufio.NewScanner(os.Stdin)
+    fmt.Print("Pokedex > ")
     scanner.Scan()
     input := scanner.Text()
 
@@ -45,12 +46,12 @@ func cliCommands() map[string]cliCommand {
 }
 
 func commandHelp() error {
-  fmt.Printf("Help: Use 'exit' to quit the program\n")
+  fmt.Println("Help: Use 'exit' to quit the program")
   return nil
 }
 
 func commandExit() error {
-  fmt.Printf("Quitting")
+  fmt.Println("Quitting")
   os.Exit(0)
   return nil
 }
