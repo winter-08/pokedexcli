@@ -2,11 +2,9 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
+  "internal/pokedexapi"
 )
 
 type config struct {
@@ -20,37 +18,6 @@ type cliCommand struct {
   callback func(*config) error
 }
 
-type Locations struct {
-	Count    int    `json:"count"`
-	Next     string `json:"next"`
-	Previous any    `json:"previous"`
-	Results  []struct {
-		ID     int    `json:"id"`
-		Name   string `json:"name"`
-		Region struct {
-			Name string `json:"name"`
-			URL  string `json:"url"`
-		} `json:"region"`
-		Names []struct {
-			Name     string `json:"name"`
-			Language struct {
-				Name string `json:"name"`
-				URL  string `json:"url"`
-			} `json:"language"`
-		} `json:"names"`
-		GameIndices []struct {
-			GameIndex  int `json:"game_index"`
-			Generation struct {
-				Name string `json:"name"`
-				URL  string `json:"url"`
-			} `json:"generation"`
-		} `json:"game_indices"`
-		Areas []struct {
-			Name string `json:"name"`
-			URL  string `json:"url"`
-		} `json:"areas"`
-	} `json:"results"`
-}
 
 func main() {
 
@@ -119,22 +86,11 @@ func commandMap(cfg *config) error {
   } else {
     url = "https://pokeapi.co/api/v2/location" 
   }
-  res, err := http.Get(url)
+  response, err := pokedexapi.GetLocations(url)
   if err != nil {
     fmt.Printf("There was an error getting locations: %v\n", err)
     return nil
   }
-
-  body, err := io.ReadAll(res.Body)
-  res.Body.Close()
-
-  if res.StatusCode > 299 {
-    fmt.Printf("res.StatusCode: %v\n", res.StatusCode)
-    fmt.Printf("body: %v\n", body)
-  }
-
-  response := Locations{}
-  json.Unmarshal(body, &response)
 
   for v := range len(response.Results) {
     fmt.Printf("Location: %v\n", response.Results[v].Name)
@@ -159,22 +115,11 @@ func commandMapb(cfg *config) error {
     fmt.Println("No previous locations")
     return nil
   }
-  res, err := http.Get(url)
+  response, err := pokedexapi.GetLocations(url)
   if err != nil {
     fmt.Printf("There was an error getting locations: %v\n", err)
     return nil
   }
-
-  body, err := io.ReadAll(res.Body)
-  res.Body.Close()
-
-  if res.StatusCode > 299 {
-    fmt.Printf("res.StatusCode: %v\n", res.StatusCode)
-    fmt.Printf("body: %v\n", body)
-  }
-
-  response := Locations{}
-  json.Unmarshal(body, &response)
 
   for v := range len(response.Results) {
     fmt.Printf("Location: %v\n", response.Results[v].Name)
