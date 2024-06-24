@@ -6,10 +6,15 @@ import (
 	"os"
 )
 
+type config struct {
+  next string
+  previous string
+}
+
 type cliCommand struct {
   name string
   description string
-  callback func() error
+  callback func(config) error
 }
 
 func main() {
@@ -20,17 +25,22 @@ func main() {
     scanner.Scan()
     input := scanner.Text()
 
-    commands := cliCommands()
+    config := config {
+      next: "",
+      previous: "",
+    }
+
+    commands := cliCommands(config)
 
     if cmd, ok := commands[input]; ok {
-      cmd.callback()
+      cmd.callback(config)
     }
 
   }
 
 }
 
-func cliCommands() map[string]cliCommand {
+func cliCommands(config) map[string]cliCommand {
   return map[string]cliCommand{
     "help": {
       name: "help",
@@ -55,21 +65,21 @@ func cliCommands() map[string]cliCommand {
   }
 }
 
-func commandHelp() error {
+func commandHelp(config) error {
   fmt.Println("Help: Use 'exit' to quit the program")
   return nil
 }
 
-func commandExit() error {
+func commandExit(config) error {
   fmt.Println("Quitting")
   os.Exit(0)
   return nil
 }
 
-func commandMap() error {
+func commandMap(config) error {
     return nil
 }
 
-func commandMapb() error {
+func commandMapb(config) error {
     return nil
 }
