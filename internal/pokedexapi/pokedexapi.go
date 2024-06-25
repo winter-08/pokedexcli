@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"pokedexcli/internal/pokecache"
 )
 
 type Locations struct {
@@ -40,8 +41,15 @@ type Locations struct {
 	} `json:"results"`
 }
 
-func GetLocations(url string) (*Locations, error) {
-  
+func GetLocations(url string, cache *pokecache.Cache) (*Locations, error) {
+  cachedRes, found := cache.Get(url)
+
+  if found == true {
+    cachedResponse := Locations{}
+    json.Unmarshal(*cachedRes, &cachedResponse)
+    return &cachedResponse, nil
+  }
+
   res, err := http.Get(url)
   if err != nil {
     fmt.Printf("There was an error getting locations: %v\n", err)
