@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"os"
 	"pokedexcli/internal/pokecache"
 	"pokedexcli/internal/pokedexapi"
@@ -21,6 +22,7 @@ type cliCommand struct {
   callback func(*config, *pokecache.Cache, []string) error
 }
 
+var pokedex map[string]*pokedexapi.Pokemon = make(map[string]*pokedexapi.Pokemon)
 
 func main() {
 
@@ -80,6 +82,11 @@ func cliCommands() map[string]cliCommand {
   name: "explore",
   description: "Returns the area for a given location",
   callback: commandExplore,
+    },
+    "catch": {
+  name: "catch",
+  description: "Returns the area for a given pokemon",
+  callback: commandCatch,
     },
   }
 }
@@ -170,4 +177,28 @@ func commandExplore(cfg *config, cache *pokecache.Cache, args []string) error {
   }
 
   return nil
+}
+
+func commandCatch(cfg *config, cache *pokecache.Cache, args []string) error {
+  if len(args) == 0 {
+    fmt.Printf("Please give a pokemon to catch")
+  }
+
+  response, err := pokedexapi.GetPokemon(args[0], cache)
+  if err != nil {
+    fmt.Printf("err: %v\n", err)
+    return nil
+  }
+
+  fmt.Printf("Throwing a ball at %v...\n", response.Name)
+
+  if 50 / rand.Intn(response.BaseExperience) > 1 {
+    fmt.Printf("%v was caught!\n", response.Name)
+    pokedex[response.Name] = response
+  } else {
+    fmt.Printf("%v escaped!\n", response.Name)
+  }
+
+  return nil
+  
 }
