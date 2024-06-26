@@ -153,7 +153,6 @@ func commandMapb(cfg *config, cache *pokecache.Cache, args []string) error {
 }
 
 func commandExplore(cfg *config, cache *pokecache.Cache, args []string) error {
-  fmt.Printf("args: %v\n", args)
   if len(args) == 0 {
     fmt.Printf("Please give a location to explore")
     return nil
@@ -162,6 +161,7 @@ func commandExplore(cfg *config, cache *pokecache.Cache, args []string) error {
   response, err := pokedexapi.GetLocationArea(args[0], cache)
   if err != nil {
     fmt.Printf("There was an error getting location area: %v\n", err)
+    return nil
   }
 
   fmt.Printf("Pokemon:\n")

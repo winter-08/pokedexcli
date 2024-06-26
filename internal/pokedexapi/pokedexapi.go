@@ -104,7 +104,6 @@ func GetLocationArea(name string, cache *pokecache.Cache) (*LocationArea, error)
   }
 
   url := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s/", name)
-  fmt.Printf("url: %v\n", url)
   res, err := http.Get(url)
 
   if err != nil {
@@ -116,9 +115,7 @@ func GetLocationArea(name string, cache *pokecache.Cache) (*LocationArea, error)
   res.Body.Close()
 
   if res.StatusCode > 299 {
-    fmt.Printf("res.StatusCode: %v\n", res.StatusCode)
-    fmt.Printf("body: %v\n", body)
-    return nil, errors.New("Error getting location area")
+    return nil, errors.New(fmt.Sprintf("Status: %v\nMessage: %s\n", res.StatusCode, string(body)))
   }
 
   cache.Add(name, body)
@@ -143,6 +140,7 @@ func GetLocations(url string, cache *pokecache.Cache) (*Locations, error) {
 
   res, err := http.Get(url)
   if err != nil {
+
     fmt.Printf("There was an error getting locations: %v\n", err)
     return nil, err
   }
@@ -151,9 +149,7 @@ func GetLocations(url string, cache *pokecache.Cache) (*Locations, error) {
   res.Body.Close()
 
   if res.StatusCode > 299 {
-    fmt.Printf("res.StatusCode: %v\n", res.StatusCode)
-    fmt.Printf("body: %v\n", body)
-    return nil, errors.New("Error getting locations")
+    return nil, errors.New(fmt.Sprintf("Status: %v\nMessage: %s\n", res.StatusCode, string(body)))
   }
 
   cache.Add(url, body)
