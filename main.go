@@ -133,7 +133,7 @@ func commandMapb(cfg *config, cache *pokecache.Cache, args []string) error {
   }
   response, err := pokedexapi.GetLocations(url, cache)
   if err != nil {
-    fmt.Printf("There was an error getting locations: %v\n", err)
+    fmt.Printf("There was an error getting locations:\n%v\n", err)
     return nil
   }
 
@@ -160,7 +160,7 @@ func commandExplore(cfg *config, cache *pokecache.Cache, args []string) error {
 
   response, err := pokedexapi.GetLocationArea(args[0], cache)
   if err != nil {
-    fmt.Printf("There was an error getting location area: %v\n", err)
+    fmt.Printf("There was an error getting location area:\n%v\n", err)
     return nil
   }
 
