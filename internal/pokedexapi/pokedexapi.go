@@ -103,7 +103,9 @@ func GetLocationArea(name string, cache *pokecache.Cache) (*LocationArea, error)
     return &cachedResponse, nil
   }
 
-  res, err := http.Get(fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%v", name))
+  url := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s/", name)
+  fmt.Printf("url: %v\n", url)
+  res, err := http.Get(url)
 
   if err != nil {
     fmt.Printf("There was an error getting location area: %v\n", err)

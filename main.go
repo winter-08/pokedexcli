@@ -3,9 +3,10 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"pokedexcli/internal/pokedexapi"
 	"os"
 	"pokedexcli/internal/pokecache"
+	"pokedexcli/internal/pokedexapi"
+	"strings"
 	"time"
 )
 
@@ -17,7 +18,7 @@ type config struct {
 type cliCommand struct {
   name string
   description string
-  callback func(*config, *pokecache.Cache) error
+  callback func(*config, *pokecache.Cache, []string) error
 }
 
 
@@ -40,12 +41,13 @@ func main() {
     fmt.Print("Pokedex > ")
     scanner.Scan()
     input := scanner.Text()
-
+  
+    args := strings.Split(input, " ")
 
     commands := cliCommands()
 
-    if cmd, ok := commands[input]; ok {
-      cmd.callback(&config, cache)
+    if cmd, ok := commands[args[0]]; ok {
+      cmd.callback(&config, cache, args[1:])
     }
 
   }
@@ -74,21 +76,26 @@ func cliCommands() map[string]cliCommand {
   description: "Returns the previous 20 locations",
   callback: commandMapb,
     },
+    "explore": {
+  name: "explore",
+  description: "Returns the area for a given location",
+  callback: commandExplore,
+    },
   }
 }
 
-func commandHelp(cfg *config, cache *pokecache.Cache) error {
+func commandHelp(cfg *config, cache *pokecache.Cache, args []string) error {
   fmt.Println("Help: Use 'exit' to quit the program")
   return nil
 }
 
-func commandExit(cfg *config, cache *pokecache.Cache) error {
+func commandExit(cfg *config, cache *pokecache.Cache, args []string) error {
   fmt.Println("Quitting")
   os.Exit(0)
   return nil
 }
 
-func commandMap(cfg *config, cache *pokecache.Cache) error {
+func commandMap(cfg *config, cache *pokecache.Cache, args []string) error {
   var url string
   if len(cfg.next) > 0 {
     url = cfg.next
@@ -101,6 +108,7 @@ func commandMap(cfg *config, cache *pokecache.Cache) error {
     return nil
   }
 
+  fmt.Printf("Locations:\n")
   for v := range response.Results {
     fmt.Printf("Location: %v\n", response.Results[v].Name)
   }
@@ -115,7 +123,7 @@ func commandMap(cfg *config, cache *pokecache.Cache) error {
   return nil
 }
 
-func commandMapb(cfg *config, cache *pokecache.Cache) error {
+func commandMapb(cfg *config, cache *pokecache.Cache, args []string) error {
   var url string
   if len(cfg.previous) > 0 {
     url = cfg.previous
@@ -129,6 +137,7 @@ func commandMapb(cfg *config, cache *pokecache.Cache) error {
     return nil
   }
 
+  fmt.Printf("Locations:\n")
   for v := range len(response.Results) {
     fmt.Printf("Location: %v\n", response.Results[v].Name)
   }
@@ -141,4 +150,24 @@ func commandMapb(cfg *config, cache *pokecache.Cache) error {
 
   return nil
 
+}
+
+func commandExplore(cfg *config, cache *pokecache.Cache, args []string) error {
+  fmt.Printf("args: %v\n", args)
+  if len(args) == 0 {
+    fmt.Printf("Please give a location to explore")
+    return nil
+  }
+
+  response, err := pokedexapi.GetLocationArea(args[0], cache)
+  if err != nil {
+    fmt.Printf("There was an error getting location area: %v\n", err)
+  }
+
+  fmt.Printf("Pokemon:\n")
+  for v := range response.PokemonEncounters {
+    fmt.Printf("%v\n", response.PokemonEncounters[v].Pokemon.Name)
+  }
+
+  return nil
 }
