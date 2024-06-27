@@ -22,7 +22,7 @@ type cliCommand struct {
   callback func(*config, *pokecache.Cache, []string) error
 }
 
-var pokedex map[string]*pokedexapi.Pokemon = make(map[string]*pokedexapi.Pokemon)
+var pokedex map[string]pokedexapi.Pokemon = make(map[string]pokedexapi.Pokemon)
 
 func main() {
 
@@ -205,7 +205,7 @@ func commandCatch(cfg *config, cache *pokecache.Cache, args []string) error {
 
   if 50 / rand.Intn(response.BaseExperience) > 1 {
     fmt.Printf("%v was caught!\n", response.Name)
-    pokedex[response.Name] = response
+    pokedex[response.Name] = *response
   } else {
     fmt.Printf("%v escaped!\n", response.Name)
   }
