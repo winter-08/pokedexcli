@@ -85,13 +85,18 @@ func cliCommands() map[string]cliCommand {
     },
     "catch": {
   name: "catch",
-  description: "Returns the area for a given pokemon",
+  description: "Attempts to catch a given pokemon and add to your pokedex",
   callback: commandCatch,
     },
     "inspect": {
   name: "inspect",
-  description: "Returns the area for a given pokemon",
+  description: "Inspects pokemon stats for a pokemon from your pokedex",
   callback: commandInspect,
+    },
+    "pokedex": {
+  name: "pokedex",
+  description: "Returns all pokemon in your pokedex",
+  callback: commandPokedex,
     },
   }
 }
@@ -233,4 +238,20 @@ func commandInspect(cfg *config, cache *pokecache.Cache, args []string) error {
   }
 
   return nil
+}
+
+func commandPokedex(cfg *config, cache *pokecache.Cache, args []string) error {
+  if len(pokedex) == 0 {
+    fmt.Print("You have not caught any pokemon yet\n")
+    return nil
+  }
+
+  fmt.Print("Your Pokedex:\n")
+
+  for v := range (pokedex) {
+    fmt.Printf("  - %v\n", pokedex[v].Name)
+  }
+
+  return nil
+
 }
