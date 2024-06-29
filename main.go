@@ -1,21 +1,24 @@
 package main
 
 import (
-	"bufio"
+	//"bufio"
 	"fmt"
 	"math/rand"
 	"os"
 	"pokedexcli/internal/pokecache"
 	"pokedexcli/internal/pokedexapi"
-	"strings"
+	//"strings"
 	"time"
-  tea "github.com/charmbracelet/bubbletea"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type model struct {
   choices []string
   cursor int
   selected map[int]struct{}
+  cache *pokecache.Cache; err error
+  config config
 }
 
 type config struct {
@@ -33,17 +36,17 @@ var pokedex map[string]pokedexapi.Pokemon = make(map[string]pokedexapi.Pokemon)
 
 func main() {
 
-  config := config {
-    next: "",
-    previous: "",
-  }
+  //config := config {
+  //  next: "",
+  //  previous: "",
+  //}
 
-  cache, err := pokecache.NewCache(5 * time.Minute)
+  //cache, err := pokecache.NewCache(5 * time.Minute)
 
-  if err != nil {
-    fmt.Printf("Error starting cache")
-    return 
-  }
+  //if err != nil {
+  //  fmt.Printf("Error starting cache")
+  //  return 
+  //}
 
   p := tea.NewProgram(initialModel())
   if _, err := p.Run(); err != nil {
@@ -52,29 +55,40 @@ func main() {
   }
 
 
+  //for {
+  //  scanner := bufio.NewScanner(os.Stdin)
+  //  fmt.Print("Pokedex > ")
+  //  scanner.Scan()
+  //  input := scanner.Text()
+  //
+  //  args := strings.Split(input, " ")
 
-  for {
-    scanner := bufio.NewScanner(os.Stdin)
-    fmt.Print("Pokedex > ")
-    scanner.Scan()
-    input := scanner.Text()
-  
-    args := strings.Split(input, " ")
+  //  commands := cliCommands()
 
-    commands := cliCommands()
+  //  if cmd, ok := commands[args[0]]; ok {
+  //    cmd.callback(&config, cache, args[1:])
+  //  }
 
-    if cmd, ok := commands[args[0]]; ok {
-      cmd.callback(&config, cache, args[1:])
-    }
-
-  }
+  //}
 
 }
 
 func initialModel() model {
+  cache, err := pokecache.NewCache(5 * time.Minute)
+
+  if err != nil {
+    fmt.Printf("Error starting cache")
+  }
+
   return model{
     choices: []string{ "help", "explore", "map", "mapb", "exit", "catch", "inspect", "pokedex" },
     selected: make(map[int]struct{}),
+    cache: cache,
+    config: config {
+      next: "",
+      previous: "",
+    },
+
   }
 }
 
@@ -104,8 +118,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
       _, ok := m.selected[m.cursor]
       if ok {
         delete(m.selected, m.cursor)
+        fmt.Print("ok")
       } else {
         m.selected[m.cursor] = struct{}{}
+        fmt.Printf("m.selected: %v\n", m.choices[m.cursor])
+        commands := cliCommands()
+
+        var args []string
+
+        if cmd, ok := commands[m.choices[m.cursor]]; ok {
+          cmd.callback(&m.config, m.cache, args)
+        }
       }
     }
   }
