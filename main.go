@@ -123,9 +123,11 @@ func (m model) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
       _, ok := m.selected[m.cursor]
       if ok {
         delete(m.selected, m.cursor)
-        fmt.Print("ok")
       } else {
         m.selected[m.cursor] = struct{}{}
+        if m.choices[m.cursor] == "explore" {
+          m.state = stateExplore
+        }
         commands := cliCommands()
 
         var args []string
