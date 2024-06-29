@@ -7,10 +7,21 @@ import (
 	"os"
 	"pokedexcli/internal/pokecache"
 	"pokedexcli/internal/pokedexapi"
+	"strings"
+
 	//"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+)
+
+type appState int
+
+const (
+  stateMainMenu appState = iota
+  stateExplore
 )
 
 type model struct {
@@ -19,6 +30,9 @@ type model struct {
   selected map[int]struct{}
   cache *pokecache.Cache; err error
   config config
+  state appState
+  textInput textinput.Model
+  table table.Model
 }
 
 type config struct {
@@ -36,40 +50,13 @@ var pokedex map[string]pokedexapi.Pokemon = make(map[string]pokedexapi.Pokemon)
 
 func main() {
 
-  //config := config {
-  //  next: "",
-  //  previous: "",
-  //}
 
-  //cache, err := pokecache.NewCache(5 * time.Minute)
-
-  //if err != nil {
-  //  fmt.Printf("Error starting cache")
-  //  return 
-  //}
-
-  p := tea.NewProgram(initialModel())
+  p := tea.NewProgram(initialModel(), tea.WithAltScreen())
   if _, err := p.Run(); err != nil {
     fmt.Printf("oh no! an error: %v", err)
     os.Exit(1)
   }
 
-
-  //for {
-  //  scanner := bufio.NewScanner(os.Stdin)
-  //  fmt.Print("Pokedex > ")
-  //  scanner.Scan()
-  //  input := scanner.Text()
-  //
-  //  args := strings.Split(input, " ")
-
-  //  commands := cliCommands()
-
-  //  if cmd, ok := commands[args[0]]; ok {
-  //    cmd.callback(&config, cache, args[1:])
-  //  }
-
-  //}
 
 }
 
@@ -80,6 +67,11 @@ func initialModel() model {
     fmt.Printf("Error starting cache")
   }
 
+  ti := textinput.New()
+
+  ti.Placeholder = "Enter location to explore"
+  ti.Focus()
+
   return model{
     choices: []string{ "help", "explore", "map", "mapb", "exit", "catch", "inspect", "pokedex" },
     selected: make(map[int]struct{}),
@@ -88,7 +80,8 @@ func initialModel() model {
       next: "",
       previous: "",
     },
-
+    state: stateMainMenu,
+    textInput: ti,
   }
 }
 
@@ -96,7 +89,19 @@ func (m model) Init() tea.Cmd {
   return nil
 }
 
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+  switch m.state {
+  case stateMainMenu:
+    return m.updateMainMenu(msg)
+  case stateExplore:
+    return m.updateExplore(msg) 
+  }
+  return m, nil
+
+}
+
+func (m model) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
   switch msg:= msg.(type) {
   case tea.KeyMsg:
     switch msg.String() {
@@ -121,7 +126,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         fmt.Print("ok")
       } else {
         m.selected[m.cursor] = struct{}{}
-        fmt.Printf("m.selected: %v\n", m.choices[m.cursor])
         commands := cliCommands()
 
         var args []string
@@ -135,7 +139,69 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
   return m, nil
 }
 
+func (m model) updateExplore(msg tea.Msg) (tea.Model, tea.Cmd) {
+  var cmd tea.Cmd
+
+  switch msg := msg.(type) {
+  case tea.KeyMsg:
+    switch msg.Type {
+    case tea.KeyEnter:
+      m.state = stateMainMenu
+      return m.executeExplore()
+    case tea.KeyCtrlC, tea.KeyEsc:
+      m.state = stateMainMenu
+      return m, nil
+    }
+    
+  }
+
+  m.textInput, cmd = m.textInput.Update(msg)
+
+  return m, cmd 
+}
+
+func (m model) executeExplore() (tea.Model, tea.Cmd) {
+  location := strings.TrimSpace(m.textInput.Value())
+
+  response, err := pokedexapi.GetLocationArea(location, m.cache)
+  if err != nil {
+    m.err = fmt.Errorf("error getting location area %v", err)
+    return m, nil
+  }
+  
+  rows := []table.Row{}
+  for _, encounter := range response.PokemonEncounters {
+    rows = append(rows, table.Row{encounter.Pokemon.Name, encounter.Pokemon.URL})
+  }
+
+  columns := []table.Column{
+    {Title: "Pokemon", Width: 20},
+    {Title: "url", Width: 20},
+  }
+  t := table.New(
+    table.WithColumns(columns),
+    table.WithRows(rows),
+    table.WithFocused(true),
+    table.WithHeight(10),
+  )
+
+  m.table = t
+  return m, nil
+
+}
+
 func (m model) View() string {
+  clearScreen()
+  switch m.state {
+    case stateMainMenu:
+      return m.viewMainMenu()
+    case stateExplore:
+      return m.viewExplore()
+  }
+  return ""
+}
+
+func (m model) viewMainMenu() string {
   s := "Pokedex"
 
   for i, choice := range m.choices {
@@ -157,6 +223,19 @@ func (m model) View() string {
   return s
 
 }
+
+func (m model) viewExplore() string {
+  return fmt.Sprintf(
+    "Enter location to explore: \n\n%s\n\n(Press Enter to confirm, Esc to cancel)",
+    m.textInput.View(),
+  )
+}
+
+func clearScreen() {
+  fmt.Print("\033[23")
+  fmt.Print("\033[H")
+}
+
 
 func cliCommands() map[string]cliCommand {
   return map[string]cliCommand{
