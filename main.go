@@ -22,6 +22,7 @@ type appState int
 const (
   stateMainMenu appState = iota
   stateExplore
+  stateMap
 )
 
 type model struct {
@@ -33,6 +34,7 @@ type model struct {
   state appState
   textInput textinput.Model
   table table.Model
+  commands map[string]cliCommand
 }
 
 type config struct {
@@ -43,7 +45,7 @@ type config struct {
 type cliCommand struct {
   name string
   description string
-  callback func(*config, *pokecache.Cache, []string) error
+  callback func(model, tea.Msg) (model,tea.Cmd, error)
 }
 
 var pokedex map[string]pokedexapi.Pokemon = make(map[string]pokedexapi.Pokemon)
@@ -82,6 +84,7 @@ func initialModel() model {
     },
     state: stateMainMenu,
     textInput: ti,
+    commands: cliCommands(),
   }
 }
 
@@ -96,8 +99,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     return m.updateMainMenu(msg)
   case stateExplore:
     return m.updateExplore(msg) 
+  case stateMap:
+    return m.updateMap()
   }
-  return m, nil
+  return m, nil 
 
 }
 
@@ -107,7 +112,7 @@ func (m model) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
     switch msg.String() {
 
     case "ctrl+c", "q":
-      return m, tea.Quit
+      return m, tea.Quit 
 
     case "up", "k":
       if m.cursor > 0 {
@@ -125,20 +130,14 @@ func (m model) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
         delete(m.selected, m.cursor)
       } else {
         m.selected[m.cursor] = struct{}{}
-        if m.choices[m.cursor] == "explore" {
-          m.state = stateExplore
-        }
-        commands := cliCommands()
 
-        var args []string
-
-        if cmd, ok := commands[m.choices[m.cursor]]; ok {
-          cmd.callback(&m.config, m.cache, args)
+        if cmd, ok := m.commands[m.choices[m.cursor]]; ok {
+          cmd.callback(m, msg)
         }
       }
     }
   }
-  return m, nil
+  return m, nil 
 }
 
 func (m model) updateExplore(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -149,10 +148,11 @@ func (m model) updateExplore(msg tea.Msg) (tea.Model, tea.Cmd) {
     switch msg.Type {
     case tea.KeyEnter:
       m.state = stateMainMenu
-      return m.executeExplore()
+      m, cmd, _ := m.executeExplore()
+      return m, cmd 
     case tea.KeyCtrlC, tea.KeyEsc:
       m.state = stateMainMenu
-      return m, nil
+      return m, nil 
     }
     
   }
@@ -162,13 +162,13 @@ func (m model) updateExplore(msg tea.Msg) (tea.Model, tea.Cmd) {
   return m, cmd 
 }
 
-func (m model) executeExplore() (tea.Model, tea.Cmd) {
+func (m model) executeExplore() (tea.Model, tea.Cmd, error) {
   location := strings.TrimSpace(m.textInput.Value())
 
   response, err := pokedexapi.GetLocationArea(location, m.cache)
   if err != nil {
     m.err = fmt.Errorf("error getting location area %v", err)
-    return m, nil
+    return m, nil, nil
   }
   
   rows := []table.Row{}
@@ -188,8 +188,49 @@ func (m model) executeExplore() (tea.Model, tea.Cmd) {
   )
 
   m.table = t
-  return m, nil
+  return m, nil, nil
 
+}
+
+func (m model) updateMap() (tea.Model, tea.Cmd) {
+  var url string
+  if len(m.config.next) > 0 {
+    url = m.config.next
+  } else {
+    url = "https://pokeapi.co/api/v2/location" 
+  }
+  response, err := pokedexapi.GetLocations(url, m.cache)
+  if err != nil {
+    fmt.Printf("There was an error getting locations: %v\n", err)
+    return m, nil
+  }
+
+  rows := []table.Row{}
+  for _, location := range response.Results {
+    rows = append(rows, table.Row{location.Name, location.Region.Name})
+  }
+
+  columns := []table.Column{
+    { Title: "Location", Width: 20 },
+    { Title: "Region", Width: 20 },
+  }
+
+  t := table.New(
+    table.WithColumns(columns),
+    table.WithRows(rows),
+    table.WithFocused(true),
+    table.WithHeight(10),
+  )
+
+  m.table = t
+
+  m.config.next = response.Next
+  switch v := response.Previous.(type) {
+  case string:
+    m.config.previous = v
+  }
+
+  return m, nil
 }
 
 func (m model) View() string {
@@ -231,6 +272,10 @@ func (m model) viewExplore() string {
     "Enter location to explore: \n\n%s\n\n(Press Enter to confirm, Esc to cancel)",
     m.textInput.View(),
   )
+}
+
+func (m model) viewMap() string {
+  return ""
 }
 
 func clearScreen() {
@@ -284,28 +329,28 @@ func cliCommands() map[string]cliCommand {
   }
 }
 
-func commandHelp(cfg *config, cache *pokecache.Cache, args []string) error {
+func commandHelp(m model, msg tea.Msg) (model, tea.Cmd, error) {
   fmt.Println("Help: Use 'exit' to quit the program")
-  return nil
+  return m, nil, nil
 }
 
-func commandExit(cfg *config, cache *pokecache.Cache, args []string) error {
+func commandExit(m model, msg tea.Msg) (model, tea.Cmd, error) {
   fmt.Println("Quitting")
   os.Exit(0)
-  return nil
+  return m, nil, nil
 }
 
-func commandMap(cfg *config, cache *pokecache.Cache, args []string) error {
+func commandMap(m model, msg tea.Msg) (model, tea.Cmd, error) {
   var url string
-  if len(cfg.next) > 0 {
-    url = cfg.next
+  if len(m.config.next) > 0 {
+    url = m.config.next
   } else {
     url = "https://pokeapi.co/api/v2/location" 
   }
-  response, err := pokedexapi.GetLocations(url, cache)
+  response, err := pokedexapi.GetLocations(url, m.cache)
   if err != nil {
     fmt.Printf("There was an error getting locations: %v\n", err)
-    return nil
+    return m, nil, nil
   }
 
   fmt.Printf("Locations:\n")
@@ -314,27 +359,27 @@ func commandMap(cfg *config, cache *pokecache.Cache, args []string) error {
   }
 
 
-  cfg.next = response.Next
+  m.config.next = response.Next
   switch v := response.Previous.(type) {
   case string:
-    cfg.previous = v
+    m.config.previous = v
   }
 
-  return nil
+  return m, nil, nil
 }
 
-func commandMapb(cfg *config, cache *pokecache.Cache, args []string) error {
+func commandMapb(m model, msg tea.Msg) (model, tea.Cmd, error) {
   var url string
-  if len(cfg.previous) > 0 {
-    url = cfg.previous
+  if len(m.config.previous) > 0 {
+    url = m.config.previous
   } else {
     fmt.Println("No previous locations")
-    return nil
+    return m, nil, nil
   }
-  response, err := pokedexapi.GetLocations(url, cache)
+  response, err := pokedexapi.GetLocations(url, m.cache)
   if err != nil {
     fmt.Printf("There was an error getting locations:\n%v\n", err)
-    return nil
+    return m, nil, nil
   }
 
   fmt.Printf("Locations:\n")
@@ -342,46 +387,54 @@ func commandMapb(cfg *config, cache *pokecache.Cache, args []string) error {
     fmt.Printf("Location: %v\n", response.Results[v].Name)
   }
 
-  cfg.next = response.Next
+  m.config.next = response.Next
   switch v := response.Previous.(type) {
   case string:  
-    cfg.previous = v
+    m.config.previous = v
   }
 
-  return nil
+  return m, nil, nil
 
 }
 
-func commandExplore(cfg *config, cache *pokecache.Cache, args []string) error {
-  if len(args) == 0 {
-    fmt.Printf("Please give a location to explore")
-    return nil
+func commandExplore(m model, msg tea.Msg) (model, tea.Cmd, error) {
+  var cmd tea.Cmd
+
+  switch msg := msg.(type) {
+  case tea.KeyMsg:
+    switch msg.Type {
+    case tea.KeyEnter:
+      m.state = stateMainMenu
+      m, cmd, _ = m.executeExplore()
+      return m, cmd
+    case tea.KeyCtrlC, tea.KeyEsc:
+      m.state = stateMainMenu
+      return m, nil, nil
+    }
+    
   }
 
-  response, err := pokedexapi.GetLocationArea(args[0], cache)
-  if err != nil {
-    fmt.Printf("There was an error getting location area:\n%v\n", err)
-    return nil
-  }
+  m.textInput, cmd = m.textInput.Update(msg)
 
-  fmt.Printf("Pokemon:\n")
-  for v := range response.PokemonEncounters {
-    fmt.Printf("%v\n", response.PokemonEncounters[v].Pokemon.Name)
-  }
+  return m, cmd, nil 
 
-  return nil
 }
 
-func commandCatch(cfg *config, cache *pokecache.Cache, args []string) error {
-  if len(args) == 0 {
+func commandCatch(m model, msg tea.Msg) (model, tea.Cmd, error) {
+
+  msg2 := msg.(tea.KeyMsg)
+
+  msg_string := msg2.String()
+
+  if len(msg_string) == 0 {
     fmt.Printf("Please give a pokemon to catch")
-    return nil
+    return m, nil, nil
   }
 
-  response, err := pokedexapi.GetPokemon(args[0], cache)
+  response, err := pokedexapi.GetPokemon(msg_string, m.cache)
   if err != nil {
     fmt.Printf("err: %v\n", err)
-    return nil
+    return m, nil, nil
   }
 
   fmt.Printf("Throwing a ball at %v...\n", response.Name)
@@ -392,20 +445,24 @@ func commandCatch(cfg *config, cache *pokecache.Cache, args []string) error {
   } else {
     fmt.Printf("%v escaped!\n", response.Name)
   }
-  return nil  
+  return m, nil  
 }
 
-func commandInspect(cfg *config, cache *pokecache.Cache, args []string) error {
-  if len(args) == 0 {
+func commandInspect(m model, msg tea.Msg) (model, tea.Cmd, error) {
+  msg2 := msg.(tea.KeyMsg)
+
+  msg_string := msg2.String()
+
+  if len(msg_string) == 0 {
     fmt.Printf("Please give a pokemon to inspect\n")
-    return nil
+    return m, nil, nil
   }
 
-  pokemon, ok := pokedex[args[0]]
+  pokemon, ok := pokedex[msg_string]
 
   if !ok {
     fmt.Print("you have not caught that pokemon\n")
-    return nil
+    return m, nil, nil
   }
 
   fmt.Printf("Name: %v\n", pokemon.Name)
@@ -420,13 +477,13 @@ func commandInspect(cfg *config, cache *pokecache.Cache, args []string) error {
     fmt.Printf("  - %v\n", pokemon.Types[v].Type.Name)
   }
 
-  return nil
+  return m, nil, nil
 }
 
-func commandPokedex(cfg *config, cache *pokecache.Cache, args []string) error {
+func commandPokedex(m model, msg tea.Msg) (model, tea.Cmd, error) {
   if len(pokedex) == 0 {
     fmt.Print("You have not caught any pokemon yet\n")
-    return nil
+    return m, nil, nil
   }
 
   fmt.Print("Your Pokedex:\n")
@@ -435,6 +492,6 @@ func commandPokedex(cfg *config, cache *pokecache.Cache, args []string) error {
     fmt.Printf("  - %v\n", pokedex[v].Name)
   }
 
-  return nil
+  return m, nil, nil
 
 }
