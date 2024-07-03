@@ -51,15 +51,11 @@ type cliCommand struct {
 var pokedex map[string]pokedexapi.Pokemon = make(map[string]pokedexapi.Pokemon)
 
 func main() {
-
-
   p := tea.NewProgram(initialModel(), tea.WithAltScreen())
   if _, err := p.Run(); err != nil {
     fmt.Printf("oh no! an error: %v", err)
     os.Exit(1)
   }
-
-
 }
 
 func initialModel() model {
