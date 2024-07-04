@@ -23,6 +23,8 @@ const (
   stateMainMenu appState = iota
   stateExplore
   stateMap
+  statePokedex
+  stateCatch
 )
 
 type model struct {
@@ -393,7 +395,9 @@ func commandMapb(m model, msg tea.Msg) (model, tea.Cmd, error) {
 
 }
 
-func commandExplore(m model, msg tea.Msg) (model, tea.Cmd, error) {
+write a hello world function
+
+func commandExplore(m model, msg tea.Msg) (model, tea.Cmd) {
   var cmd tea.Cmd
 
   switch msg := msg.(type) {
@@ -401,19 +405,17 @@ func commandExplore(m model, msg tea.Msg) (model, tea.Cmd, error) {
     switch msg.Type {
     case tea.KeyEnter:
       m.state = stateMainMenu
-      m, cmd, _ = m.executeExplore()
+      m, cmd := m.executeExplore()
       return m, cmd
     case tea.KeyCtrlC, tea.KeyEsc:
       m.state = stateMainMenu
-      return m, nil, nil
+      return m, nil
     }
-    
   }
 
   m.textInput, cmd = m.textInput.Update(msg)
 
-  return m, cmd, nil 
-
+  return m, cmd
 }
 
 func commandCatch(m model, msg tea.Msg) (model, tea.Cmd, error) {
